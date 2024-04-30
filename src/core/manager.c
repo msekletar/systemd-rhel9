@@ -2331,8 +2331,11 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
                 assert(u->in_dbus_queue);
 
-                bus_unit_send_change_signal(u);
+                bus_unit_send_change_signal(u, &budget);
                 n++;
+
+                if (budget == 0)
+                        return 0;
 
                 if (budget != UINT_MAX)
                         budget--;
@@ -2343,6 +2346,9 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
                 bus_job_send_change_signal(j);
                 n++;
+
+                if (budget == 0)
+                        return 0;
 
                 if (budget != UINT_MAX)
                         budget--;

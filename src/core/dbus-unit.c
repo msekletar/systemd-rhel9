@@ -1621,7 +1621,7 @@ static int send_changed_signal(sd_bus *bus, void *userdata) {
                         NULL);
 }
 
-void bus_unit_send_change_signal(Unit *u) {
+void bus_unit_send_change_signal(Unit *u, unsigned *budget) {
         int r;
         assert(u);
 
@@ -1638,6 +1638,15 @@ void bus_unit_send_change_signal(Unit *u) {
                 log_unit_debug_errno(u, r, "Failed to send unit change signal for %s: %m", u->id);
 
         u->sent_dbus_new_signal = true;
+
+        /* Every call to the handler generated message that was either sent right away or enqueued, let's
+         * update the budget accordingly. */
+        if (budget) {
+                if (*budget >= (unsigned) r)
+                        *budget -= r;
+                else
+                        *budget = 0;
+        }
 }
 
 void bus_unit_send_pending_change_signal(Unit *u, bool including_new) {
@@ -1658,7 +1667,7 @@ void bus_unit_send_pending_change_signal(Unit *u, bool including_new) {
                                                * when we are reloading. */
                 return;
 
-        bus_unit_send_change_signal(u);
+        bus_unit_send_change_signal(u, NULL);
 }
 
 int bus_unit_send_pending_freezer_message(Unit *u) {
@@ -1711,7 +1720,7 @@ void bus_unit_send_removed_signal(Unit *u) {
         assert(u);
 
         if (!u->sent_dbus_new_signal || u->in_dbus_queue)
-                bus_unit_send_change_signal(u);
+                bus_unit_send_change_signal(u, NULL);
 
         if (!u->id)
                 return;

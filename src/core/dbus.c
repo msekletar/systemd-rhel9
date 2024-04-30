@@ -1096,7 +1096,7 @@ int bus_foreach_bus(
                 void *userdata) {
 
         sd_bus *b;
-        int r, ret = 0;
+        int r, ret = 0, count = 0;
 
         /* Send to all direct buses, unconditionally */
         SET_FOREACH(b, m->private_buses) {
@@ -1106,8 +1106,10 @@ int bus_foreach_bus(
                         continue;
 
                 r = send_message(b, userdata);
-                if (r < 0)
+                if (ret == 0 && r < 0)
                         ret = r;
+                else
+                        count++;
         }
 
         /* Send to API bus, but only if somebody is subscribed */
@@ -1115,11 +1117,13 @@ int bus_foreach_bus(
             (sd_bus_track_count(m->subscribed) > 0 ||
              sd_bus_track_count(subscribed2) > 0)) {
                 r = send_message(m->api_bus, userdata);
-                if (r < 0)
+                if (ret == 0 && r < 0)
                         ret = r;
+                else
+                        count++;
         }
 
-        return ret;
+        return ret < 0 ? ret : count;
 }
 
 void bus_track_serialize(sd_bus_track *t, FILE *f, const char *prefix) {
